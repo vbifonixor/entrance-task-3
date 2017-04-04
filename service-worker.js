@@ -4,7 +4,7 @@
  * Сервис-воркер, обеспечивающий оффлайновую работу избранного
  */
 
-const CACHE_VERSION = '1.0.0-broken';
+const CACHE_VERSION = '1.0.1-fixed'; // теперь статика перекэшируется
 
 importScripts('../vendor/kv-keeper.js-1.0.4/kv-keeper.js');
 
@@ -14,7 +14,6 @@ self.addEventListener('install', event => {
         // Вопрос №1: зачем нужен этот вызов?
         .then(() => self.skipWaiting())
         .then(() => console.log('[ServiceWorker] Installed!'));
-
     event.waitUntil(promise);
 });
 
@@ -25,23 +24,29 @@ self.addEventListener('activate', event => {
             self.clients.claim();
 
             console.log('[ServiceWorker] Activated!');
-        });
+        })
 
     event.waitUntil(promise);
 });
 
 self.addEventListener('fetch', event => {
+
     const url = new URL(event.request.url);
 
     // Вопрос №3: для всех ли случаев подойдёт такое построение ключа?
     const cacheKey = url.origin + url.pathname;
 
+
     let response;
+
     if (needStoreForOffline(cacheKey)) {
-        response = caches.match(cacheKey)
-            .then(cacheResponse => cacheResponse || fetchAndPutToCache(cacheKey, event.request));
+      // Файлы сначала берутся из кэша, а если их там нет - подгружаются. Изменяем на подгрузку и кэширование по умолчанию:
+        // response = caches.match(cacheKey)
+            // .then(cacheResponse => cacheResponse || fetchAndPutToCache(cacheKey, event.request));
+        response = fetchAndPutToCache(cacheKey, event.request);
     } else {
         response = fetchWithFallbackToCache(event.request);
+        console.info(response);
     }
 
     event.respondWith(response);
@@ -127,7 +132,9 @@ function deleteObsoleteCaches() {
 function needStoreForOffline(cacheKey) {
     return cacheKey.includes('vendor/') ||
         cacheKey.includes('assets/') ||
-        cacheKey.endsWith('jquery.min.js');
+        cacheKey.includes('gifs.html') || // теперь будет кэшироваться и сама страница
+        cacheKey.endsWith('jquery.min.js') ||
+        cacheKey.includes('giphy.com');
 }
 
 // Скачать и добавить в кеш
@@ -142,7 +149,8 @@ function fetchAndPutToCache(cacheKey, request) {
                 .then(() => response);
         })
         .catch(err => {
-            console.error('[ServiceWorker] Fetch error:', err);
+            // Попробуем вытащить из кэша, если существует (но скажем в консоль, что fetch не совершён)
+            console.warn('[ServiceWorker] Fetch error:', err);
             return caches.match(cacheKey);
         });
 }

@@ -438,6 +438,7 @@ modules.define('giphy', ['i-bem', 'jquery', 'vow'], function(provide, bem, $, vo
                     if (res.meta.msg !== 'OK') {
                         throw new Error('Giphy error: ' + res.meta.msg);
                     }
+                    console.log('Hello!');
                     return res;
                 })
                 .catch(function(xhr) {
@@ -466,7 +467,8 @@ modules.define('service-worker', ['i-bem'], function(provide, bem) {
             }
 
             this._serviceWorker
-                .register('./assets/service-worker.js')
+                // Сервис-воркер должен лежать в корне для того, чтобы контролировать gifs.html. Иначе его область видимости будет ограничена той папкой, в которой он находится и всеми ниже неё по иерархии.
+                .register('./service-worker.js')
                 .then(function() {
                     console.log('[ServiceWorkerContainer] ServiceWorker is registered!');
                 })
